@@ -66,12 +66,36 @@ jobs:
           grep -Fxq '  SUPPORTED_DEVICES += cf-wr630ax' <<<"$wr_block"
 
           # Check the newly-added board entries are placed consistently.
-          test "$(grep -n '^comfast,cf-wa933|\\$' target/linux/mediatek/filogic/base-files/etc/board.d/01_leds | cut -d: -f1)" -lt \
-               "$(grep -n '^comfast,cf-wr630ax)$' target/linux/mediatek/filogic/base-files/etc/board.d/01_leds | cut -d: -f1)"
-          test "$(grep -n $'^\\tbuffalo,wsr-6000ax8|\\\\$' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | cut -d: -f1)" -lt \
-               "$(grep -n $'^\\tcomfast,cf-wr630ax|\\\\$' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | cut -d: -f1)"
-          test "$(grep -n '^comfast,cf-e393ax|\\$' package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic | cut -d: -f1)" -lt \
-               "$(grep -n '^comfast,cf-wr630ax|\\$' package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic | cut -d: -f1)"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          leds = Path(
+              "target/linux/mediatek/filogic/base-files/etc/board.d/01_leds"
+          ).read_text()
+          assert leds.index("comfast,cf-wa933|\\\\") < leds.index(
+              "comfast,cf-wr630ax)"
+          )
+
+          network = Path(
+              "target/linux/mediatek/filogic/base-files/etc/board.d/02_network"
+          ).read_text()
+          group = network[
+              network.index("\tabt,asr3000|\\\\"):
+              network.index("\tzbtlink,zbt-z8103ax-c)") + len(
+                  "\tzbtlink,zbt-z8103ax-c)"
+              )
+          ]
+          assert group.index("\tbuffalo,wsr-6000ax8|\\\\") < group.index(
+              "\tcomfast,cf-wr630ax|\\\\"
+          )
+
+          env = Path(
+              "package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic"
+          ).read_text()
+          assert env.index("comfast,cf-e393ax|\\\\") < env.index(
+              "comfast,cf-wr630ax|\\\\"
+          )
+          PY
 
           git config user.name 'Stefan Lindholm'
           git config user.email 'openwrt@stli.se'
