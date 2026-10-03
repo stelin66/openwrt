@@ -72,7 +72,7 @@ jobs:
           leds = Path(
               "target/linux/mediatek/filogic/base-files/etc/board.d/01_leds"
           ).read_text()
-          assert leds.index("comfast,cf-wa933|\\\\") < leds.index(
+          assert leds.index("comfast,cf-wa933|") < leds.index(
               "comfast,cf-wr630ax)"
           )
 
@@ -92,8 +92,8 @@ jobs:
           env = Path(
               "package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic"
           ).read_text()
-          assert env.index("comfast,cf-e393ax|\\\\") < env.index(
-              "comfast,cf-wr630ax|\\\\"
+          assert env.index("comfast,cf-e393ax|") < env.index(
+              "comfast,cf-wr630ax|"
           )
           PY
 
