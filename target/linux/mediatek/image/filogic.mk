@@ -1125,9 +1125,8 @@ define Device/comfast_cf-e393ax
   PAGESIZE := 2048
   IMAGE_SIZE := 65536k
   KERNEL_IN_UBI := 1
-  IMAGES := sysupgrade.bin factory.bin
-  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SUPPORTED_DEVICES += cf-wr630ax
 endef
 TARGET_DEVICES += comfast_cf-e393ax
 
