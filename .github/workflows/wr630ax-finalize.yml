@@ -145,9 +145,10 @@ jobs:
           Flash instructions
           ------------------
 
-          For normal installation from COMFAST stock firmware, open the stock
-          firmware-update WebUI, select the OpenWrt sysupgrade image, start the
-          upgrade, and wait for the router to reboot:
+          For normal installation from COMFAST stock firmware, connect a
+          computer to a LAN port and open http://192.168.0.1/ in a browser.
+          In the stock firmware-update page, select the OpenWrt sysupgrade
+          image, start the upgrade, and wait for the router to reboot:
 
             openwrt-mediatek-filogic-comfast_cf-wr630ax-squashfs-sysupgrade.bin
 
@@ -191,9 +192,11 @@ jobs:
           [Stefan Lindholm: complete and verify port; update for current main]
           EOF
 
-          git commit --author='dingjie <DW22965391@outlook.com>' -s -F "$msg"
+          GIT_AUTHOR_DATE='2025-11-04T07:59:51Z' \
+            git commit --author='dingjie <DW22965391@outlook.com>' -s -F "$msg"
 
           test "$(git show -s --format='%an <%ae>' HEAD)" = 'dingjie <DW22965391@outlook.com>'
+          test "$(git show -s --format='%aI' HEAD)" = '2025-11-04T07:59:51+00:00'
           test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: dingjie <DW22965391@outlook.com>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: Stefan Lindholm <openwrt@stli.se>'
