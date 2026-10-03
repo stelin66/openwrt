@@ -116,6 +116,20 @@ jobs:
           assert env.index("comfast,cf-e393ax|") < env.index(
               "comfast,cf-wr630ax|"
           )
+
+          dts = Path(
+              "target/linux/mediatek/dts/mt7981b-comfast-cf-wr630ax.dts"
+          ).read_text()
+          for node in (
+              "button-reset {",
+              "button-wps {",
+              "led_wlan5g: led-0 {",
+              "led_wlan2g: led-1 {",
+              "led_mesh: led-2 {",
+              "led_wan: led-3 {",
+              "spi_nand: nand@1 {",
+          ):
+              assert node in dts
           PY
 
           git config user.name 'Stefan Lindholm'
