@@ -9,6 +9,7 @@ mediatek_setup_interfaces()
 
 	case $board in
 	abt,asr3000|\
+	comfast,cf-wr630ax|\
 	buffalo,wsr-6000ax8|\
 	h3c,magic-nx30-pro|\
 	imou,hx21|\
