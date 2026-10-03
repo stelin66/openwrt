@@ -29,7 +29,8 @@ jobs:
 
           git remote add upstream https://github.com/openwrt/openwrt.git
           git fetch upstream main
-          base="$(git rev-parse upstream/main)"
+          base='0d212bc523580e3bd20d18d646987ca488f8d0ee'
+          git merge-base --is-ancestor "$base" upstream/main
 
           git fetch origin "$source_branch" "$final_branch"
           old_final="$(git rev-parse origin/"$final_branch")"
@@ -43,6 +44,26 @@ jobs:
             target/linux/mediatek/filogic/base-files/etc/board.d/02_network \
             target/linux/mediatek/image/filogic.mk \
             | git apply --index -
+
+          # The source validation branch inherited executable bits on three
+          # data/board files. Upstream stores these as 0644; normalize them
+          # before creating the submission commit.
+          chmod 0644 \
+            package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic \
+            target/linux/mediatek/filogic/base-files/etc/board.d/01_leds \
+            target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+          git add \
+            package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic \
+            target/linux/mediatek/filogic/base-files/etc/board.d/01_leds \
+            target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+
+          for file in \
+            package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic \
+            target/linux/mediatek/filogic/base-files/etc/board.d/01_leds \
+            target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+          do
+            test "$(git ls-files -s "$file" | awk '{print $1}')" = 100644
+          done
 
           git diff --cached --check
 
@@ -196,6 +217,7 @@ jobs:
           test "$(git rev-parse HEAD^)" = "$base"
           test "$(git diff --name-only "$base"..HEAD | wc -l)" -eq 5
           git diff --check "$base"..HEAD
+          ./scripts/checkpatch.pl --show-types -g HEAD
 
           echo "BASE=$base"
           echo "FINAL_COMMIT=$(git rev-parse HEAD)"
