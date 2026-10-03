@@ -59,14 +59,19 @@ jobs:
           sort -o "$expected" "$expected"
           diff -u "$expected" "$actual"
 
-          # The final device profile must emit sysupgrade + initramfs kernel,
-          # not the obsolete unverified factory image, and must accept the
-          # legacy stock COMFAST board identifier during migration.
           wr_block="$(sed -n '/^define Device\/comfast_cf-wr630ax$/,/^endef$/p' target/linux/mediatek/image/filogic.mk)"
           printf '%s\n' "$wr_block"
           ! grep -Fq 'factory.bin' <<<"$wr_block"
           grep -Fxq '  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata' <<<"$wr_block"
           grep -Fxq '  SUPPORTED_DEVICES += cf-wr630ax' <<<"$wr_block"
+
+          # Check the newly-added board entries are placed consistently.
+          test "$(grep -n '^comfast,cf-wa933|\\$' target/linux/mediatek/filogic/base-files/etc/board.d/01_leds | cut -d: -f1)" -lt \
+               "$(grep -n '^comfast,cf-wr630ax)$' target/linux/mediatek/filogic/base-files/etc/board.d/01_leds | cut -d: -f1)"
+          test "$(grep -n $'^\\tbuffalo,wsr-6000ax8|\\\\$' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | cut -d: -f1)" -lt \
+               "$(grep -n $'^\\tcomfast,cf-wr630ax|\\\\$' target/linux/mediatek/filogic/base-files/etc/board.d/02_network | cut -d: -f1)"
+          test "$(grep -n '^comfast,cf-e393ax|\\$' package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic | cut -d: -f1)" -lt \
+               "$(grep -n '^comfast,cf-wr630ax|\\$' package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic | cut -d: -f1)"
 
           git config user.name 'Stefan Lindholm'
           git config user.email 'openwrt@stli.se'
@@ -78,62 +83,92 @@ jobs:
           Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6
           router.
 
-          Specification
-          -------------
+          Hardware specification
+          ----------------------
 
           - SoC: MediaTek MT7981B
           - RAM: 256 MiB DDR3
           - Flash: 128 MiB Winbond SPI-NAND
-          - Switch: MediaTek MT7531
-          - Ethernet: 3x 1GbE LAN, 1x 1GbE WAN
-          - Wi-Fi: 2.4 GHz and 5 GHz 802.11ax
-          - Buttons: Reset, WPS
-          - LEDs: Mesh, WAN, 2.4 GHz, 5 GHz
-          - UART: 3.3 V TTL, 115200 8N1
+          - Wi-Fi: 2.4/5 GHz 2x2 802.11ax (MT7981B + MT7976CN)
+          - Ethernet: 3x 1GbE LAN via MT7531, 1x 1GbE WAN via MT7981 PHY
+          - LEDs: 4x GPIO (Mesh, WAN, 2.4 GHz, 5 GHz)
+          - Buttons: 2x GPIO (Reset, WPS/Mesh)
+          - UART: PCB header next to heatsink, VCC/GND/RX/TX, 115200 8N1
+          - UART level: 3.3 V TTL; connect GND/TX/RX only, leave VCC open
+          - Power: 12 VDC, 1 A
 
-          Installation
-          ------------
+          Flash instructions
+          ------------------
 
-          From the COMFAST stock firmware, upload
-          openwrt-mediatek-filogic-comfast_cf-wr630ax-squashfs-sysupgrade.bin
-          using the stock firmware-update WebUI and wait for the router to
-          reboot into OpenWrt.
+          For normal installation from COMFAST stock firmware, open the stock
+          firmware-update WebUI, select the OpenWrt sysupgrade image, start the
+          upgrade, and wait for the router to reboot:
 
-          The COMFAST stock firmware uses the OpenWrt sysupgrade archive format
-          with legacy board ID "cf-wr630ax". Keep this ID in SUPPORTED_DEVICES
-          so the stock-to-OpenWrt migration is accepted.
+            openwrt-mediatek-filogic-comfast_cf-wr630ax-squashfs-sysupgrade.bin
 
-          Recovery
-          --------
+          Opening the enclosure is not required for normal installation.
 
-          If the stock WebUI is unavailable, use the 3.3 V TTL UART at 115200
-          8N1 with GND/TX/RX only; do not connect VCC. From U-Boot, load the
-          initramfs image by TFTP and boot it in RAM:
+          The stock firmware uses the OpenWrt sysupgrade archive format with
+          legacy board ID "cf-wr630ax". Keep that ID in SUPPORTED_DEVICES for
+          stock-to-OpenWrt migration.
 
-             tftpboot ${loadaddr} openwrt-mediatek-filogic-comfast_cf-wr630ax-initramfs-kernel.bin
-             iminfo ${loadaddr}
-             bootm ${loadaddr}
+          For recovery, connect the UART and a TFTP server at 192.168.1.10.
+          Rename the initramfs image to "wr630ax-initramfs.bin", interrupt
+          U-Boot autoboot, and run:
 
-          Then copy the sysupgrade image to /tmp, verify it with sysupgrade -T,
-          and install it with sysupgrade -n.
+            tftpboot ${loadaddr} wr630ax-initramfs.bin
+            iminfo ${loadaddr}
+            bootm ${loadaddr}
 
-          The board DTS provides per-band Wi-Fi MAC addresses from Factory
-          NVMEM cells. BL2, u-boot-env, Factory and FIP stay outside the OpenWrt
-          UBI partition and are not modified by sysupgrade.
+          After OpenWrt boots from RAM, copy the sysupgrade image to /tmp,
+          verify it with sysupgrade -T, then install it with sysupgrade -n.
+
+          Reverting to the COMFAST stock firmware has not been verified on
+          hardware, so no unverified stock-flash procedure is documented here.
+
+          MAC address layout
+          ------------------
+
+          - LAN: Factory + 0xe000
+          - WAN: Factory + 0xe000, incremented by 1
+          - 2.4 GHz: Factory + 0x0004
+          - 5 GHz: Factory + 0x8000
+
+          BL2, u-boot-env, Factory and FIP are outside the OpenWrt UBI
+          partition and were verified unchanged after sysupgrade.
 
           This work continues the earlier CF-WR630AX support submitted by ddf29
           in #20654, with the original device-support commit authored by
           dingjie <DW22965391@outlook.com>. The port has since been completed,
           updated for current OpenWrt main, and verified on hardware.
+
+          Signed-off-by: dingjie <DW22965391@outlook.com>
+          [Stefan Lindholm: complete and verify port; update for current main]
           EOF
 
-          git commit -s -F "$msg"
+          git commit --author='dingjie <DW22965391@outlook.com>' -s -F "$msg"
 
-          test "$(git show -s --format='%an <%ae>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
+          test "$(git show -s --format='%an <%ae>' HEAD)" = 'dingjie <DW22965391@outlook.com>'
           test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
+          git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: dingjie <DW22965391@outlook.com>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: Stefan Lindholm <openwrt@stli.se>'
           git show -s --format='%B' HEAD | grep -Fq 'submitted by ddf29'
           git show -s --format='%B' HEAD | grep -Fq 'dingjie <DW22965391@outlook.com>'
+
+          subject="$(git show -s --format='%s' HEAD)"
+          test "${#subject}" -lt 50
+          git show -s --format='%B' HEAD | awk '
+            length($0) >= 75 {
+              print "commit-message line too long: " length($0) ": " $0
+              bad=1
+            }
+            END { exit bad }
+          '
+
+          for section in 'Hardware specification' 'Flash instructions' 'MAC address layout'; do
+            git show -s --format='%B' HEAD | grep -Fxq "$section"
+          done
+
           test "$(git rev-parse HEAD^)" = "$base"
           test "$(git diff --name-only "$base"..HEAD | wc -l)" -eq 5
           git diff --check "$base"..HEAD
