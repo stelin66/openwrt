@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create DCO-correct final branch
+      - name: Recreate DCO-correct final commit
         shell: bash
         run: |
           set -euxo pipefail
@@ -28,7 +28,9 @@ jobs:
           source_branch='mediatek-filogic-cf-wr630ax-rebased-validation'
           final_branch='mediatek-filogic-cf-wr630ax-final'
 
-          git fetch origin "$source_branch"
+          git fetch origin "$source_branch" "$final_branch"
+          old_final="$(git rev-parse origin/"$final_branch")"
+
           git checkout -B "$final_branch" "$base"
 
           git diff --binary "$base"...origin/"$source_branch" -- \
@@ -59,21 +61,46 @@ jobs:
 
           msg="$(mktemp)"
           cat > "$msg" <<'EOF'
-          mediatek: filogic: add support for COMFAST CF-WR630AX
+          mediatek: add support for COMFAST CF-WR630AX
 
-          Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6 router.
+          Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6
+          router.
 
-          Hardware:
-          - MediaTek MT7981B
-          - 256 MB DDR3
-          - 128 MB SPI-NAND
-          - MediaTek MT7531 switch
-          - 3x Gigabit LAN and 1x Gigabit WAN
-          - 802.11ax 2.4 GHz and 5 GHz
+          Specification
+          -------------
 
-          Add the board DTS, image definition, LED and network defaults, and U-Boot
-          environment configuration. Wi-Fi MAC addresses are read from Factory NVMEM
-          cells.
+          - SoC: MediaTek MT7981B
+          - RAM: 256 MiB DDR3
+          - Flash: 128 MiB Winbond SPI-NAND
+          - Switch: MediaTek MT7531
+          - Ethernet: 3x 1GbE LAN, 1x 1GbE WAN
+          - Wi-Fi: 2.4 GHz and 5 GHz 802.11ax
+          - Buttons: Reset, WPS
+          - LEDs: Mesh, WAN, 2.4 GHz, 5 GHz
+          - UART: 3.3 V TTL, 115200 8N1
+
+          Installation
+          ------------
+
+          1. Connect the 3.3 V UART and a TFTP server to the router.
+          2. From U-Boot, load and boot the initramfs image:
+
+             tftpboot ${loadaddr} openwrt-mediatek-filogic-comfast_cf-wr630ax-initramfs-kernel.bin
+             iminfo ${loadaddr}
+             bootm ${loadaddr}
+
+          3. Copy the sysupgrade image to /tmp on the running initramfs system.
+          4. Verify the image:
+
+             sysupgrade -T /tmp/openwrt-mediatek-filogic-comfast_cf-wr630ax-squashfs-sysupgrade.bin
+
+          5. Install OpenWrt:
+
+             sysupgrade -n /tmp/openwrt-mediatek-filogic-comfast_cf-wr630ax-squashfs-sysupgrade.bin
+
+          The board DTS provides per-band Wi-Fi MAC addresses from Factory
+          NVMEM cells. BL2, u-boot-env, Factory and FIP stay outside the OpenWrt
+          UBI partition and are not modified by sysupgrade.
 
           Based on earlier support work by dingjie <DW22965391@outlook.com>.
           EOF
@@ -84,8 +111,9 @@ jobs:
           test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: Stefan Lindholm <openwrt@stli.se>'
           test "$(git rev-parse HEAD^)" = "$base"
+          test "$(git rev-parse HEAD^{tree})" = '2599cae8db0d89a4e33e2fa9f48ca57533ae7017'
           test "$(git diff --name-only "$base"..HEAD | wc -l)" -eq 5
-
-          git show --stat --format=fuller HEAD
           git diff --check "$base"..HEAD
-          git push origin HEAD:refs/heads/"$final_branch"
+
+          git push --force-with-lease=refs/heads/"$final_branch":"$old_final" \
+            origin HEAD:refs/heads/"$final_branch"
