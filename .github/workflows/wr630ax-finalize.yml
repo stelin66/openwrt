@@ -1,0 +1,86 @@
+name: Finalize WR630AX upstream commit
+
+on:
+  push:
+    branches:
+      - wr630ax-finalize-helper
+    paths:
+      - '.github/workflows/wr630ax-finalize.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create DCO-correct final branch
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          base='9b95be917b2804cf877ca05c078175b37a3a95bf'
+          source_branch='mediatek-filogic-cf-wr630ax-rebased-validation'
+          final_branch='mediatek-filogic-cf-wr630ax-final'
+
+          git fetch origin "$source_branch"
+
+          git checkout -B "$final_branch" "$base"
+
+          git diff --binary "$base"...origin/"$source_branch" -- \
+            package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic \
+            target/linux/mediatek/dts/mt7981b-comfast-cf-wr630ax.dts \
+            target/linux/mediatek/filogic/base-files/etc/board.d/01_leds \
+            target/linux/mediatek/filogic/base-files/etc/board.d/02_network \
+            target/linux/mediatek/image/filogic.mk \
+            | git apply --index -
+
+          git diff --cached --check
+
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          cat > "$expected" <<'EOF'
+package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
+target/linux/mediatek/dts/mt7981b-comfast-cf-wr630ax.dts
+target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
+target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+target/linux/mediatek/image/filogic.mk
+EOF
+          git diff --cached --name-only | sort > "$actual"
+          sort -o "$expected" "$expected"
+          diff -u "$expected" "$actual"
+
+          git config user.name 'Stefan Lindholm'
+          git config user.email 'openwrt@stli.se'
+
+          git commit -s \
+            -m 'mediatek: filogic: add support for COMFAST CF-WR630AX' \
+            -m 'Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6 router.
+
+Hardware:
+- MediaTek MT7981B
+- 256 MB DDR3
+- 128 MB SPI-NAND
+- MediaTek MT7531 switch
+- 3x Gigabit LAN and 1x Gigabit WAN
+- 802.11ax 2.4 GHz and 5 GHz
+
+Add the board DTS, image definition, LED and network defaults, and U-Boot environment configuration. Wi-Fi MAC addresses are read from Factory NVMEM cells.
+
+Based on earlier support work by dingjie <DW22965391@outlook.com>.'
+
+          test "$(git show -s --format='%an <%ae>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
+          test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
+          git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: Stefan Lindholm <openwrt@stli.se>'
+          test "$(git rev-parse HEAD^)" = "$base"
+          test "$(git diff --name-only "$base"..HEAD | wc -l)" -eq 5
+
+          git show --stat --format=fuller HEAD
+          git diff --check "$base"..HEAD
+
+          git push origin HEAD:refs/heads/"$final_branch"
