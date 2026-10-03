@@ -196,7 +196,7 @@ jobs:
             git commit --author='dingjie <DW22965391@outlook.com>' -s -F "$msg"
 
           test "$(git show -s --format='%an <%ae>' HEAD)" = 'dingjie <DW22965391@outlook.com>'
-          test "$(git show -s --format='%aI' HEAD)" = '2025-11-04T07:59:51+00:00'
+          test "$(git show -s --format='%aI' HEAD)" = '2025-11-04T07:59:51Z'
           test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: dingjie <DW22965391@outlook.com>'
           git show -s --format='%B' HEAD | grep -Fxq 'Signed-off-by: Stefan Lindholm <openwrt@stli.se>'
