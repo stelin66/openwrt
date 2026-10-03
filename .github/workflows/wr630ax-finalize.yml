@@ -29,7 +29,6 @@ jobs:
           final_branch='mediatek-filogic-cf-wr630ax-final'
 
           git fetch origin "$source_branch"
-
           git checkout -B "$final_branch" "$base"
 
           git diff --binary "$base"...origin/"$source_branch" -- \
@@ -45,12 +44,12 @@ jobs:
           expected="$(mktemp)"
           actual="$(mktemp)"
           cat > "$expected" <<'EOF'
-package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
-target/linux/mediatek/dts/mt7981b-comfast-cf-wr630ax.dts
-target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
-target/linux/mediatek/filogic/base-files/etc/board.d/02_network
-target/linux/mediatek/image/filogic.mk
-EOF
+          package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic
+          target/linux/mediatek/dts/mt7981b-comfast-cf-wr630ax.dts
+          target/linux/mediatek/filogic/base-files/etc/board.d/01_leds
+          target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+          target/linux/mediatek/image/filogic.mk
+          EOF
           git diff --cached --name-only | sort > "$actual"
           sort -o "$expected" "$expected"
           diff -u "$expected" "$actual"
@@ -58,21 +57,28 @@ EOF
           git config user.name 'Stefan Lindholm'
           git config user.email 'openwrt@stli.se'
 
-          git commit -s \
-            -m 'mediatek: filogic: add support for COMFAST CF-WR630AX' \
-            -m 'Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6 router.
+          msg="$(mktemp)"
+          cat > "$msg" <<'EOF'
+          mediatek: filogic: add support for COMFAST CF-WR630AX
 
-Hardware:
-- MediaTek MT7981B
-- 256 MB DDR3
-- 128 MB SPI-NAND
-- MediaTek MT7531 switch
-- 3x Gigabit LAN and 1x Gigabit WAN
-- 802.11ax 2.4 GHz and 5 GHz
+          Add support for the COMFAST CF-WR630AX, an MT7981B-based Wi-Fi 6 router.
 
-Add the board DTS, image definition, LED and network defaults, and U-Boot environment configuration. Wi-Fi MAC addresses are read from Factory NVMEM cells.
+          Hardware:
+          - MediaTek MT7981B
+          - 256 MB DDR3
+          - 128 MB SPI-NAND
+          - MediaTek MT7531 switch
+          - 3x Gigabit LAN and 1x Gigabit WAN
+          - 802.11ax 2.4 GHz and 5 GHz
 
-Based on earlier support work by dingjie <DW22965391@outlook.com>.'
+          Add the board DTS, image definition, LED and network defaults, and U-Boot
+          environment configuration. Wi-Fi MAC addresses are read from Factory NVMEM
+          cells.
+
+          Based on earlier support work by dingjie <DW22965391@outlook.com>.
+          EOF
+
+          git commit -s -F "$msg"
 
           test "$(git show -s --format='%an <%ae>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
           test "$(git show -s --format='%cn <%ce>' HEAD)" = 'Stefan Lindholm <openwrt@stli.se>'
@@ -82,5 +88,4 @@ Based on earlier support work by dingjie <DW22965391@outlook.com>.'
 
           git show --stat --format=fuller HEAD
           git diff --check "$base"..HEAD
-
           git push origin HEAD:refs/heads/"$final_branch"
